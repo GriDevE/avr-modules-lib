@@ -5,8 +5,8 @@
  *  Author: GriDev
  */
 
-#include <stdio.h>
-#include <avr/io.h>
+#include <stdlib.h>
+
 #include <avr/interrupt.h>
 
 #include "../macros.h"
@@ -15,8 +15,8 @@
 
 //////// Variables
 
-void (*GI_callback_receive_byte)(uint8_t ucsra, uint8_t frame_data) = NULL;
-uint8_t (*GI_callback_transmit_byte)(void) = NULL;
+void (*GI_callback_receive_frame)(uint8_t errors, uint8_t frame) = NULL;
+uint8_t (*GI_callback_transmit_frame)(void) = NULL;
 
 void (*GI_callback_transfer_complete)(void) = NULL;
 
@@ -26,12 +26,12 @@ void (*GI_callback_transfer_complete)(void) = NULL;
 ISR(USART_RX_vect)
 {
     uint8_t ucsra = UCSR0A;
-    GI_callback_receive_byte(ucsra, UDR0);
+    GI_callback_receive_frame(ucsra, UDR0);
 }
 
 ISR(USART_UDRE_vect)
 {
-    UDR0 = GI_callback_transmit_byte();
+    UDR0 = GI_callback_transmit_frame();
     UCSR0A |= (1<<TXC0);
 }
 
@@ -44,8 +44,8 @@ ISR(USART_TX_vect)
 
 //////// Functions
 
-void uart_init(void (*callback_receive_byte)(uint8_t ucsra, uint8_t frame_data),
-               uint8_t (*callback_transmit_byte)(void) )
+void uart_init(void (*callback_receive_frame)(uint8_t ucsra, uint8_t frame),
+               uint8_t (*callback_transmit_frame)(void) )
 {
     UCSR0B =
         0<<RXCIE0 | // RX Complete Interrupt Enable.
@@ -139,9 +139,14 @@ void uart_init(void (*callback_receive_byte)(uint8_t ucsra, uint8_t frame_data),
         0<<UCPOL0; // Используется только для синхронного режима. 
         // Должен быть записан в ноль при использовании асинхронного режима.
 
-    GI_callback_receive_byte = callback_receive_byte;
-    GI_callback_transmit_byte = callback_transmit_byte;
+    GI_callback_receive_frame = callback_receive_frame;
+    GI_callback_transmit_frame = callback_transmit_frame;
 
+    //
+    DDR(PORT_UART) cb (1<<PIN_UART_RX);
+    PORT_UART      sb (1<<PIN_UART_RX);
+    PORT_UART      sb (1<<PIN_UART_TX);
+    DDR(PORT_UART) sb (1<<PIN_UART_TX);
     // RS485
     PORT_UART_DIRECTION      cb (1<<PIN_UART_DIRECTION);
     DDR(PORT_UART_DIRECTION) sb (1<<PIN_UART_DIRECTION);
@@ -156,7 +161,7 @@ void uart_set_baud(uint16_t baud)
     SREG = sreg;
 }
 
-void set_callback_uart_tx_complete(void (*callback_transfer_complete)(void) )
+void uart_set_callback_tx_complete(void (*callback_transfer_complete)(void) )
 {
     uint8_t sreg = SREG;
     cli();

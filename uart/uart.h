@@ -10,6 +10,8 @@
 //////// Задействованные ресурсы
 //
 // USART0
+// PORT_UART
+// PORT_UART_DIRECTION
 //
 // Прерывания:
 //   USART_RX_vect
@@ -43,13 +45,11 @@
 #define PIN_UART_DIRECTION PD5
 #define RS485_IN  PORT_UART_DIRECTION cb (1<<PIN_UART_DIRECTION)
 #define RS485_OUT PORT_UART_DIRECTION sb (1<<PIN_UART_DIRECTION)
-#define RS485_STATE ( PORT_UART_DIRECTION & (1<<PIN_UART_DIRECTION) )
+#define RS485_STATE_IN (!(PORT_UART_DIRECTION & 1<<PIN_UART_DIRECTION))
+#define RS485_STATE_OUT (PORT_UART_DIRECTION & 1<<PIN_UART_DIRECTION)
 
 
 //////// Definitions
-
-// Проверка завершения передачи
-#define UART_TRANSFER_COMPLETE (UCSR0A & 1<<TXC0)
 
 // Ошибка в принятом кадре
 #define UART_RECEIVE_FRAME_ERROR(ucsra) (ucsra & 1<<FE0)
@@ -60,28 +60,29 @@
 //////// Functions
 
 // Инициализирует модуль UART
-void uart_init(void (*callback_receive_byte)(uint8_t ucsra, uint8_t frame_data),
-               uint8_t (*callback_transmit_byte)(void) );
+void uart_init(void (*callback_receive_frame)(uint8_t errors, uint8_t frame),
+               uint8_t (*callback_transmit_frame)(void) );
     // Коллбэки будут вызываться из прерываний!
 
 void uart_set_baud(uint16_t baud);
     // Перед вызовом убедиться, что передача завершена!
 
-// Включить/выключить передатчик и прерывание UART по готовности для записи UDR0
-#define UART_TRANSFER_ON  UCSR0B |=  (1 << TXEN0 | 1 << UDRIE0)
-#define UART_TRANSFER_I_OFF UCSR0B &= ~(1 << UDRIE0)
-#define UART_TRANSFER_OFF UCSR0B &= ~(1 << TXEN0)
-    // Прерывание вызывает callback_transmit_byte(),
-    // который передаёт следующий кадр.
-
 // Включить/выключить приёмник и прерывание UART по завершению приёма кадра
-#define UART_RECEIVE_ON  UCSR0B |=  (1 << RXEN0 | 1 << RXCIE0)
-#define UART_RECEIVE_OFF UCSR0B &= ~(1 << RXEN0 | 1 << RXCIE0)
-    // Прерывание вызывает callback_receive_byte(frame_data),
+#define UART_RECEIVE_ON  UCSR0B |=  (1<<RXEN0 | 1<<RXCIE0)
+#define UART_RECEIVE_OFF UCSR0B &= ~(1<<RXEN0 | 1<<RXCIE0)
+    // Прерывание вызывает callback_receive_frame(frame),
     // в который передаётся принятый кадр.
 
+// Включить/выключить передатчик и прерывание UART по готовности UDR0 для записи
+#define UART_TRANSFER_ON  UCSR0B |=  (1<<TXEN0 | 1<<UDRIE0)
+    // Прерывание вызывает callback_transmit_frame(),
+    // который передаёт следующий кадр.
+#define UART_TRANSFER_I_OFF UCSR0B &= ~(1<<UDRIE0) // Отключает прерывание.
+#define UART_TRANSFER_OFF UCSR0B &= ~(1<<TXEN0) // Отключает передатчик.
+
 // Устанавливает коллбэк вызываемый по завершению передачи кадров
-void set_callback_uart_tx_complete(void (*callback_transfer_complete)(void) );
+void uart_set_callback_tx_complete(void (*callback_transfer_complete)(void) );
+    // Коллбэк будет вызываться из прерывания!
 
 // Включить/выключить вызов коллбэка по завершению передачи кадров
 #define UART_TX_COMPLETE_CALL_ON  UCSR0B |=  (1<<TXCIE0)
