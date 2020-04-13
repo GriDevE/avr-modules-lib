@@ -108,11 +108,10 @@ void swuart_tx_complete_call_off(void);
 // Выполнять только с отключенными прерываниями!
 
 #define SWUART_RECEIVE_ON do {   \
-        TIMSK1 &= ~(1<<OCIE1A);  \
         EIFR |= 1<<INTF0;        \
         EIMSK |= 1<<INT0;        \
     } while(0)
-    // Можно вызывать только, если точно уверены что приём отключен!
+    // Можно вызывать только, если точно знаем что приём отключен!
 
 #define SWUART_RECEIVE_OFF do {    \
         TIMSK1 &= ~(1<<OCIE1A);    \

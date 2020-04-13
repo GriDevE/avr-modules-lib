@@ -226,11 +226,6 @@ void swuart_receive_on(void)
     if (!( EIMSK & 1<<INT0 )) {
         if (!( TIMSK1 & 1<<OCIE1A )) {
             // Значит приём отключен
-            uint8_t sreg = SREG;
-            cli();
-            TIMSK1 cb (1<<OCIE1A);
-            SREG = sreg;
-
             EIFR sb 1<<INTF0;
             EIMSK sb 1<<INT0;
         }
@@ -243,10 +238,11 @@ void swuart_receive_off(void)
     TIMSK1 cb (1<<OCIE1A);
     EIMSK cb (1<<INT0);
     SREG = sreg;
-
+    cli(); // На случай если swuart_transfer_on() из прерывания вызовут.
     if (!( TIMSK1 & 1<<OCIE1B )) {
         TIMER_OFF;
     }
+    SREG = sreg;
 }
 
 void swuart_transfer_on(void)
@@ -255,18 +251,20 @@ void swuart_transfer_on(void)
         // Значит передача отключена
         G_swuart_tx.counter_bit = 0;
 
-        G_swuart_tx.byte = G_swuart_tx.I_callback_transmit_frame();
-
-        // Формируем старт-бит
-        PORT_SWUART cb (1<<PIN_SWUART_TX);
-        OCR1B = TCNT1 + G_swuart_tx.time_one_bit;
-
-        TIFR1 sb 1<<OCF1B;
         uint8_t sreg = SREG;
         cli();
         GI_swuart_flags sb F_TRANSFER_ON;
-        TIMER_ON;
+        SREG = sreg;
+        
+        // Формируем старт-бит
+        PORT_SWUART cb (1<<PIN_SWUART_TX);
+        OCR1B = TCNT1 + G_swuart_tx.time_one_bit;
+        
+        TIFR1 sb 1<<OCF1B;
+        cli();
         TIMSK1 sb 1<<OCIE1B;
+        TIMER_ON;
+        G_swuart_tx.byte = G_swuart_tx.I_callback_transmit_frame();
         SREG = sreg;
     }
 }
