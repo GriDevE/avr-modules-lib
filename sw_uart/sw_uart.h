@@ -113,12 +113,12 @@ void swuart_tx_complete_call_off(void);
     } while(0)
     // Можно вызывать только, если точно знаем что приём отключен!
 
-#define SWUART_RECEIVE_OFF do {    \
-        TIMSK1 &= ~(1<<OCIE1A);    \
-        EIMSK &= ~(1<<INT0);       \
-        if (TIMSK1 & 1<<OCIE1B) {  \
-            TCCR1B = 0;            \
-        }                          \
+#define SWUART_RECEIVE_OFF do {         \
+        TIMSK1 &= ~(1<<OCIE1A);         \
+        EIMSK &= ~(1<<INT0);            \
+        if (!( TIMSK1 & 1<<OCIE1B )) {  \
+            TCCR1B = 0;                 \
+        }                               \
     } while(0)
 
 #define SWUART_TRANSFER_OFF do {              \
